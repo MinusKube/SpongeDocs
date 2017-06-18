@@ -3,6 +3,8 @@ Custom DataManipulators
 =======================
 
 .. javadoc-import::
+    org.spongepowered.api.data.DataManager
+    org.spongepowered.api.data.DataRegistration
     org.spongepowered.api.data.DataSerializable
     org.spongepowered.api.data.DataHolder
     org.spongepowered.api.data.DataQuery
@@ -20,6 +22,7 @@ Custom DataManipulators
     org.spongepowered.api.data.value.mutable.BoundedComparableValue
     org.spongepowered.api.data.value.ValueContainer
     org.spongepowered.api.inventory.ItemStack
+    org.spongepowered.api.util.TypeTokens
     java.util.Comparable
     java.util.Comparator
     com.google.common.reflect.TypeToken
@@ -109,7 +112,9 @@ You need to pass one ``TypeToken`` representing the *raw* type of your value, an
 .. note::
 
     :javadoc:`TypeToken`\ s are used by the server implementation to preserve the generic type of your
-    values. They are created in one of two ways:
+    values. Sponge provides a long list of pre-buit tokens for the API in :javadoc:`TypeTokens`.
+
+    If you need to create your own, you can do this in one of two ways:
 
     - For non-generic types, use ``TypeToken.of(MyType.class)``
     - For generic types, create an anonymous class with ``TypeToken<MyGenericType<String>>() {}``
@@ -143,6 +148,45 @@ change is made to the format of your serialized data, and use :ref:`content-upda
 
         return container;
     }
+
+Registration
+============
+
+Registering your ``DataManipulator`` allows it to be accessible by Sponge and by other plugins in a generic way. The
+server/plugin can create copies of your data and serialize/deserialize your data without referencing any of your classes
+directly.
+
+To register a ``DataManipulator`` Sponge has the :javadoc:`DataRegistration#builder()` helper. This will build a
+:javadoc:`DataRegistration` and automatically register it with the server.
+
+.. code-block:: java
+
+    import org.spongepowered.api.event.game.state.GameInitializationEvent;
+    import org.spongepowered.api.data.DataRegistration;
+
+    import org.example.MyCustomData;
+    import org.example.ImmutableCustomData;
+    import org.example.CustomDataBuilder;
+
+    @Listener
+    public void onInit(GameInitializationEvent event) {
+      DataRegistration.<MyCustomData, ImmutableCustomData>builder()
+          .setDataClass(MyCustomData.class)
+          .setImmutableDataClass(ImmutableCustomData.class)
+          .setBuilder(new CustomDataBuilder())
+          .setManipulatorId("my_custom")
+          .buildAndRegister(this);
+    }
+
+Note that in the above we perform this action during initialization. If you register your data too late in the lifecycle
+of the server, your ``DataManipulator`` will not be available for the server to deserialize if required.
+
+.. warning::
+
+    Any data that was serialized prior to ``6.0.0`` will *not* be recognised when registering this way. To ensure that
+    legacy data serializations are deserialized, you should call
+    :javadoc:`DataManager#registerLegacyManipulatorIds(String, DataRegistration<?, ?>)`.
+    The ID is the class' canonical name, such as ``com.example.MyCustomData``.
 
 .. _single-data-types:
 
